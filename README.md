@@ -1,98 +1,301 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 📋 TN-Backend — Express.js + Sequelize + MSSQL
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Tổng quan dự án
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Backend Đồ án cuối khóa được xây dựng theo kiến trúc **3 lớp (Layered Architecture)** chuẩn mực, sử dụng:
 
-## Description
+| Công nghệ | Phiên bản | Mục đích |
+|-----------|-----------|---------|
+| Node.js | ≥18 | Runtime |
+| Express.js | ^4.19 | HTTP Framework |
+| Sequelize ORM | ^6.37 | Object-Relational Mapper |
+| MSSQL (tedious) | ^18.6 | Database driver |
+| bcryptjs | ^2.4 | Hash mật khẩu |
+| jsonwebtoken | ^9.0 | JWT Authentication |
+| swagger-ui-express | ^5.0 | Tài liệu API tự động |
+| express-validator | ^7.1 | Validation middleware |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 🗂️ Cấu trúc thư mục
 
-```bash
-$ npm install
+```
+TN-Backend/
+├── src/
+│   ├── server.js              ← Entry point, khởi động server
+│   ├── config/
+│   │   ├── database.js        ← Kết nối SQL Server bằng Sequelize
+│   │   └── swagger.js         ← Cấu hình Swagger UI tại /api-docs
+│   ├── models/
+│   │   ├── index.js           ← Tập trung associations + sync DB
+│   │   ├── User.js            ← Model người dùng (ADMIN/USER)
+│   │   ├── EquipmentCategory.js ← Model danh mục thiết bị
+│   │   ├── Equipment.js       ← Model thiết bị (FK -> Category)
+│   │   ├── BorrowRequest.js   ← Model đơn mượn (FK -> User, Equipment)
+│   │   └── StudioBooking.js   ← Model đặt phòng (FK -> User)
+│   ├── middlewares/
+│   │   ├── auth.middleware.js ← Xác thực JWT + phân quyền RBAC
+│   │   └── validate.middleware.js ← Validation với express-validator
+│   ├── services/
+│   │   ├── auth.service.js    ← Logic đăng ký, đăng nhập, JWT
+│   │   ├── equipment.service.js ← Logic CRUD thiết bị + Search/Filter/Pagination
+│   │   ├── borrowRequest.service.js ← Logic duyệt đơn + Transaction
+│   │   └── studioBooking.service.js ← Logic đặt phòng + kiểm tra trùng lịch
+│   ├── controllers/
+│   │   ├── auth.controller.js
+│   │   ├── equipment.controller.js
+│   │   ├── borrowRequest.controller.js
+│   │   └── studioBooking.controller.js
+│   └── routes/
+│       ├── auth.routes.js
+│       ├── equipment.routes.js
+│       ├── borrowRequest.routes.js
+│       ├── studioBooking.routes.js
+│       └── category.routes.js
+├── .env                       ← Biến môi trường (KHÔNG commit lên git)
+├── .env.example               ← Template .env
+├── package.json
+└── README.md
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+## 🗄️ Sơ đồ quan hệ Database (ERD)
 
-# watch mode
-$ npm run start:dev
+```
+EquipmentCategories (1) ─────────── (N) Equipments
+       id (PK)                              id (PK)
+       name                                 code
+       description                          name
+                                            category_id (FK)
+                                            quantity
+                                            available_quantity
+                                            status [AVAILABLE/BORROWED/MAINTENANCE]
 
-# production mode
-$ npm run start:prod
+Users (1) ──────────────────────── (N) BorrowRequests
+   id (PK, UUID)                          id (PK, UUID)
+   full_name                              user_id (FK -> Users)
+   email (UNIQUE)                         equipment_id (FK -> Equipments)
+   password (HASHED)                      quantity
+   employee_code                          purpose
+   role [ADMIN/USER]                      borrow_date
+   is_active                              return_date
+                                          actual_return_date
+                     ┌─────────────────── status [PENDING/APPROVED/REJECTED/RETURNED]
+                     │
+Users (1) ──────────┘───────────── (N) StudioBookings
+                                         id (PK, UUID)
+                                         user_id (FK -> Users)
+                                         studio_name
+                                         purpose
+                                         start_time
+                                         end_time
+                                         status [PENDING/CONFIRMED/COMPLETED/CANCELLED]
 ```
 
-## Run tests
+---
 
+## 🚀 Hướng dẫn cài đặt & chạy
+
+### Bước 1: Cài dependencies
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+### Bước 2: Cấu hình database
+Mở file `.env` và điền thông tin SQL Server:
+```env
+DB_HOST=localhost
+DB_PORT=1433
+DB_NAME=TN_Database        # Tên database (tạo trước trong SQL Server)
+DB_USER=sa
+DB_PASSWORD=YourPassword   # Mật khẩu SQL Server
+DB_TRUST_SERVER_CERTIFICATE=true   # Bắt buộc cho local development
+JWT_SECRET=change_this_to_a_long_random_string
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Bước 3: Tạo database trong SQL Server
+```sql
+-- Chạy trong SQL Server Management Studio (SSMS):
+CREATE DATABASE TN_Database;
+```
 
-## Resources
+> **Lưu ý**: Sequelize sẽ tự tạo bảng khi server khởi động (`sequelize.sync({ alter: true })`).
+> Bạn KHÔNG cần tạo bảng thủ công.
 
-Check out a few resources that may come in handy when working with NestJS:
+### Bước 4: Khởi động server
+```bash
+npm run dev    # Development (auto-reload với nodemon)
+npm start      # Production
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Bước 5: Kiểm tra
+- 🖥️ Server: http://localhost:5000
+- 📄 Swagger UI: http://localhost:5000/api-docs
+- 🔍 Health Check: http://localhost:5000/health
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 📡 Danh sách API Endpoints
 
-## Stay in touch
+### 🔐 Authentication (`/api/auth`)
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+| Method | Endpoint | Auth | Mô tả |
+|--------|----------|------|-------|
+| POST | `/api/auth/register` | ❌ Public | Đăng ký tài khoản |
+| POST | `/api/auth/login` | ❌ Public | Đăng nhập → JWT Token |
+| GET | `/api/auth/profile` | ✅ Login | Lấy profile của mình |
+| PATCH | `/api/auth/profile` | ✅ Login | Cập nhật profile |
+| GET | `/api/auth/users` | 👑 Admin | Danh sách tất cả users |
 
-## License
+### 🔧 Thiết bị (`/api/equipments`)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+| Method | Endpoint | Auth | Mô tả |
+|--------|----------|------|-------|
+| GET | `/api/equipments` | ✅ Login | Danh sách (search/filter/pagination) |
+| GET | `/api/equipments/:id` | ✅ Login | Chi tiết thiết bị |
+| POST | `/api/equipments` | 👑 Admin | Thêm thiết bị mới |
+| PATCH | `/api/equipments/:id` | 👑 Admin | Cập nhật thiết bị |
+| DELETE | `/api/equipments/:id` | 👑 Admin | Xóa thiết bị |
+
+### 📦 Đơn mượn (`/api/borrow-requests`)
+
+| Method | Endpoint | Auth | Mô tả |
+|--------|----------|------|-------|
+| GET | `/api/borrow-requests` | ✅ Login | Danh sách đơn (RBAC) |
+| POST | `/api/borrow-requests` | ✅ Login | Tạo đơn mượn mới |
+| PATCH | `/api/borrow-requests/:id/process` | 👑 Admin | Duyệt/Từ chối |
+| PATCH | `/api/borrow-requests/:id/return` | ✅ Login | Xác nhận trả |
+
+### 🎬 Studio (`/api/studio-bookings`)
+
+| Method | Endpoint | Auth | Mô tả |
+|--------|----------|------|-------|
+| GET | `/api/studio-bookings` | ✅ Login | Danh sách booking |
+| POST | `/api/studio-bookings` | ✅ Login | Đặt phòng |
+| PATCH | `/api/studio-bookings/:id/process` | 👑 Admin | Xác nhận/Huỷ |
+| PATCH | `/api/studio-bookings/:id/cancel` | ✅ Login | Tự huỷ |
+
+### 📂 Danh mục (`/api/categories`)
+
+| Method | Endpoint | Auth | Mô tả |
+|--------|----------|------|-------|
+| GET | `/api/categories` | ✅ Login | Danh sách danh mục |
+| POST | `/api/categories` | 👑 Admin | Tạo danh mục |
+| DELETE | `/api/categories/:id` | 👑 Admin | Xóa danh mục |
+
+---
+
+## 🔍 Tìm kiếm, Lọc và Phân trang (Query Parameters)
+
+Các API danh sách hỗ trợ đầy đủ:
+
+```http
+GET /api/equipments?search=canon&categoryId=1&status=AVAILABLE&page=1&limit=10
+```
+
+| Param | Kiểu | Mô tả |
+|-------|------|-------|
+| `search` | string | Tìm theo tên/mã (SQL LIKE) |
+| `categoryId` | number | Lọc theo danh mục |
+| `status` | string | Lọc theo trạng thái |
+| `page` | number | Số trang (default: 1) |
+| `limit` | number | Số item/trang (default: 10) |
+
+**Response format:**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [...],
+    "total": 50,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 5
+  }
+}
+```
+
+---
+
+## 🔐 Xác thực JWT
+
+### Đăng nhập:
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "Password123" }
+```
+
+### Sử dụng token:
+```http
+GET /api/equipments
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+---
+
+## 🏗️ Kiến trúc Layered (3 lớp)
+
+```
+HTTP Request
+     ↓
+  ROUTES          ← Định nghĩa endpoint URL + method
+     ↓
+MIDDLEWARES        ← authenticate() → authorize() → validate()
+     ↓
+CONTROLLERS        ← Nhận req, gọi service, trả res (KHÔNG có business logic)
+     ↓
+SERVICES           ← Toàn bộ Business Logic, kiểm tra điều kiện nghiệp vụ
+     ↓
+MODELS (Sequelize) ← Tương tác với SQL Server (CRUD, query, transaction)
+     ↓
+  SQL Server
+```
+
+---
+
+## 💡 Giải thích kỹ thuật quan trọng
+
+### 1. bcryptjs - Hash mật khẩu
+```js
+const hashedPassword = await bcrypt.hash(password, 10); // 10 = saltRounds
+const isValid = await bcrypt.compare(plaintext, hashedPassword); // So sánh
+```
+- `saltRounds=10`: ~100ms để hash → đủ chậm để brute-force khó khăn
+- Mỗi lần hash tạo salt ngẫu nhiên → cùng mật khẩu có hash khác nhau
+
+### 2. JWT - JSON Web Token
+```js
+const token = jwt.sign({ id, email, role }, JWT_SECRET, { expiresIn: '7d' });
+const decoded = jwt.verify(token, JWT_SECRET); // Xác minh + giải mã
+```
+- 3 phần: `header.payload.signature` (đều base64)
+- Signature đảm bảo token không bị giả mạo
+- Client lưu token → gửi trong `Authorization: Bearer <token>`
+
+### 3. Sequelize Op (Operators)
+```js
+const { Op } = require('sequelize');
+where[Op.like] = `%${search}%`;  // SQL: LIKE '%...%'
+where[Op.or]   = [...]           // SQL: OR
+where[Op.between] = [start, end] // SQL: BETWEEN
+```
+
+### 4. Sequelize Transaction
+```js
+const result = await sequelize.transaction(async (t) => {
+  await ModelA.update(data1, { transaction: t });
+  await ModelB.update(data2, { transaction: t });
+  // Nếu 1 trong 2 lỗi -> tự động ROLLBACK cả 2
+}); // Nếu không lỗi -> tự động COMMIT
+```
+
+### 5. Eager Loading (JOIN)
+```js
+Equipment.findAll({
+  include: [{ model: Category, as: 'category', attributes: ['id', 'name'] }]
+});
+// SQL: SELECT e.*, c.id, c.name FROM Equipments e LEFT JOIN EquipmentCategories c ON...
+```
